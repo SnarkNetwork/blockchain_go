@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
-
+	"time"
 	"os"
 )
 
@@ -13,6 +13,7 @@ type CLI struct{}
 
 func (cli *CLI) printUsage() {
 	fmt.Println("Usage:")
+	fmt.Println("  autorun - Run the system automatically for benchmarking")
 	fmt.Println("  createblockchain -address ADDRESS - Create a blockchain and send genesis block reward to ADDRESS")
 	fmt.Println("  createwallet - Generates a new key-pair and saves it into the wallet file")
 	fmt.Println("  getbalance -address ADDRESS - Get balance of ADDRESS")
@@ -34,11 +35,12 @@ func (cli *CLI) validateArgs() {
 func (cli *CLI) Run() {
 	cli.validateArgs()
 
-	nodeID := os.Getenv("NODE_ID")
+	nodeID := os.Getenv("NODE_ID_UTXO")
 	if nodeID == "" {
-		fmt.Printf("NODE_ID env. var is not set!")
-		os.Exit(1)
+		nodeID = "3000"
 	}
+
+	autoRunCmd := flag.NewFlagSet("autorun", flag.ExitOnError)
 
 	getBalanceCmd := flag.NewFlagSet("getbalance", flag.ExitOnError)
 	createBlockchainCmd := flag.NewFlagSet("createblockchain", flag.ExitOnError)
@@ -98,9 +100,32 @@ func (cli *CLI) Run() {
 		if err != nil {
 			log.Panic(err)
 		}
+	case "autorun":
+		err := autoRunCmd.Parse(os.Args[:])
+		if err != nil {
+			log.Panic(err)
+		}
 	default:
 		cli.printUsage()
 		os.Exit(1)
+	}
+
+	if autoRunCmd.Parsed() {
+		start := time.Now()
+		fmt.Println("Start: ", start)
+		//cli.createBlockchain("182XCfRpdJCJaHwDCMpMEqhfDH1fWZWFVP", nodeID)
+		for i := 0; i < 10; i++ {
+			blockStart := time.Now()
+			cli.send("182XCfRpdJCJaHwDCMpMEqhfDH1fWZWFVP", "182XCfRpdJCJaHwDCMpMEqhfDH1fWZWFVP", 0, nodeID, true)
+			t := time.Now()
+			elapsed := t.Sub(start)
+			blockElapsed := t.Sub(blockStart)
+			fmt.Println("Elapsed: ", elapsed, " Block Elapsed: ", blockElapsed)
+		}
+		t := time.Now()
+		elapsed := t.Sub(start)
+		fmt.Println("End: ", t, " Elapsed: ", elapsed)
+		cli.printChain(nodeID)
 	}
 
 	if getBalanceCmd.Parsed() {
@@ -140,16 +165,10 @@ func (cli *CLI) Run() {
 			sendCmd.Usage()
 			os.Exit(1)
 		}
-
 		cli.send(*sendFrom, *sendTo, *sendAmount, nodeID, *sendMine)
 	}
 
 	if startNodeCmd.Parsed() {
-		nodeID := os.Getenv("NODE_ID")
-		if nodeID == "" {
-			startNodeCmd.Usage()
-			os.Exit(1)
-		}
 		cli.startNode(nodeID, *startNodeMiner)
 	}
 }
